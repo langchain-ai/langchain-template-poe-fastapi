@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "langchain-template-poe-fastapi"
+version = "0.1.0"
+description = ""
+authors = ["LangChain Inc."]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "langchain_template_poe_fastapi"}]
+
+[tool.poetry.dependencies]
+python = ">=3.8.1,<4.0"
+fastapi-poe = "^0.0.3"
+langchain = {path = "../langchain", develop = true}
+openai = "^0.27.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
