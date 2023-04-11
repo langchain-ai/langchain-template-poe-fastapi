@@ -1,4 +1,8 @@
-.PHONY: = start
+.PHONY: start, format, try
+
+format:
+	poetry run black .
+	poetry run isort .
 
 start:
 	poetry run python -m langchain_template_poe_fastapi

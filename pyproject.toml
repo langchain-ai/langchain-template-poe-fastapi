@@ -12,6 +12,8 @@ python = ">=3.8.1,<4.0"
 fastapi-poe = "^0.0.3"
 langchain = {path = "../langchain", develop = true}
 openai = "^0.27.3"
+black = "^23.3.0"
+isort = "^5.12.0"
 
 
 [build-system]

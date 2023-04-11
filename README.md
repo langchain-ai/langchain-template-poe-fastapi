@@ -4,17 +4,17 @@
 
 Install dependencies
 ```commandline
-$ poetry install
+poetry install
 ```
 
 Run the server
 ```commandline
-$ make start
+make start
 ```
 
 Make a request
 ```commandline
-$ curl -X 'POST' \
+curl -X 'POST' \
 'http://0.0.0.0:8080/' \
 -H 'accept: application/json' \
 -H 'Content-Type: application/json' \
