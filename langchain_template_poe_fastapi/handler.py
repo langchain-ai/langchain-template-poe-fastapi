@@ -1,29 +1,32 @@
 import asyncio
-from typing import List
 import sys
+from typing import List
 
 from fastapi_poe import PoeHandler
 from fastapi_poe.types import ProtocolMessage, QueryRequest
-from langchain.callbacks import AsyncIteratorCallbackHandler, AsyncCallbackManager
-from langchain.schema import BaseMessage, HumanMessage, SystemMessage, AIMessage, ChatMessage
-from langchain.prompts import (
-    ChatPromptTemplate,
-    MessagesPlaceholder,
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate
-)
-from langchain.chains import ConversationChain
+from langchain.callbacks import (AsyncCallbackManager,
+                                 AsyncIteratorCallbackHandler)
+from langchain.chains import ConversationalRetrievalChain, ConversationChain
+from langchain.chains.conversational_retrieval.prompts import (
+    CONDENSE_QUESTION_PROMPT, QA_PROMPT)
+from langchain.chains.llm import LLMChain
+from langchain.chains.question_answering import load_qa_chain
 from langchain.chat_models import ChatOpenAI
-from langchain.memory import ConversationBufferMemory
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import Chroma
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.llms import OpenAI
-from langchain.chains import ConversationalRetrievalChain
 from langchain.document_loaders import TextLoader
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.llms import OpenAI
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts import (ChatPromptTemplate, HumanMessagePromptTemplate,
+                               MessagesPlaceholder,
+                               SystemMessagePromptTemplate)
+from langchain.schema import (AIMessage, BaseMessage, ChatMessage,
+                              HumanMessage, SystemMessage)
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.vectorstores import Chroma
 
 
 def convert_poe_messages(poe_messages: List[ProtocolMessage]) -> List[BaseMessage]:
+    """Convert a list of ProtocolMessage to a list of BaseMessage."""
     messages = []
     for poe_message in poe_messages:
         if poe_message.role == "user":
@@ -33,12 +36,15 @@ def convert_poe_messages(poe_messages: List[ProtocolMessage]) -> List[BaseMessag
         elif poe_message.role == "system":
             messages.append(SystemMessage(content=poe_message.content))
         else:
-            messages.append(ChatMessage(content=poe_message.content, role=poe_message.role))
+            messages.append(
+                ChatMessage(content=poe_message.content, role=poe_message.role)
+            )
     return messages
 
 
 class LangChainChatModelPoeHandler(PoeHandler):
     """A simple example of using a ChatModel to handle a conversation."""
+
     async def get_response(self, query: QueryRequest):
         # Create a callback manager for this request
         callback_handler = AsyncIteratorCallbackHandler()
@@ -61,14 +67,17 @@ class LangChainChatModelPoeHandler(PoeHandler):
         await run
 
 
-CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([
-    SystemMessagePromptTemplate.from_template(
-        "The following is a friendly conversation between a human and an AI. The AI is talkative and provides "
-        "lots of specific details from its context. If the AI does not know the answer to a question, "
-        "it truthfully says it does not know."),
-    MessagesPlaceholder(variable_name="history"),
-    HumanMessagePromptTemplate.from_template("{input}")
-])
+CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages(
+    [
+        SystemMessagePromptTemplate.from_template(
+            "The following is a friendly conversation between a human and an AI. The AI is talkative and provides "
+            "lots of specific details from its context. If the AI does not know the answer to a question, "
+            "it truthfully says it does not know."
+        ),
+        MessagesPlaceholder(variable_name="history"),
+        HumanMessagePromptTemplate.from_template("{input}"),
+    ]
+)
 
 
 class LangChainConversationChainPoeHandler(PoeHandler):
@@ -76,6 +85,7 @@ class LangChainConversationChainPoeHandler(PoeHandler):
     Note that in a real application, you would want to use a database to store the memory for each conversation.
     This assumes that there is one request per conversation_id at a time.
     """
+
     def __init__(self):
         self.memories = {}  # Use a different memory per conversation_id
 
@@ -101,8 +111,6 @@ class LangChainConversationChainPoeHandler(PoeHandler):
 
         # Yield the tokens as they come in
         async for token in callback_handler.aiter():
-            sys.stdout.write(token)
-            sys.stdout.flush()
             yield self.text_event(token)
 
         # Await the chain run
@@ -112,7 +120,13 @@ class LangChainConversationChainPoeHandler(PoeHandler):
 class LangChainConversationRetrievalChainPoeHandler(PoeHandler):
     """An example of using a ConversationRetrievalChain to handle a conversation.
     This is useful for asking questions about documents.
+    This assumes that there is one request per conversation_id at a time.
+
+    You will need to install the following packages:
+    pip install chromadb
+    pip install tiktoken
     """
+
     def __init__(self):
         self.chat_history = {}  # Use a different chat history per conversation_id
 
@@ -130,7 +144,8 @@ class LangChainConversationRetrievalChainPoeHandler(PoeHandler):
         # Set up the callback handlers and chains
         callback_handler = AsyncIteratorCallbackHandler()
         callback_manager = AsyncCallbackManager([callback_handler])
-        model = OpenAI(callback_manager=callback_manager, streaming=True)
+        question_gen_model = OpenAI(temperature=0)
+        stream_model = OpenAI(callback_manager=callback_manager, streaming=True)
 
         # Get the chat history for this conversation
         chat_history = self.chat_history.get(query.conversation_id)
@@ -142,18 +157,27 @@ class LangChainConversationRetrievalChainPoeHandler(PoeHandler):
         chain_input = query.query[-1].content
 
         # Run the chain, we'll await it later
-        chain = ConversationalRetrievalChain(
-            vectorstore=self.vectorstore,
-            prompt=CHAT_PROMPT_TEMPLATE,
-            llm=model,
-            chat_history=chat_history
+        question_generator = LLMChain(
+            llm=question_gen_model, prompt=CONDENSE_QUESTION_PROMPT
         )
-        run = asyncio.create_task(chain.acall({"question": chain_input, "chat_history": chat_history}))
+        doc_chain = load_qa_chain(
+            stream_model,
+            chain_type="stuff",
+            prompt=QA_PROMPT,
+            callback_manager=callback_manager,
+        )
+
+        chain = ConversationalRetrievalChain(
+            combine_docs_chain=doc_chain,
+            question_generator=question_generator,
+            retriever=self.vectorstore.as_retriever(),
+        )
+        run = asyncio.create_task(
+            chain.acall({"question": chain_input, "chat_history": chat_history})
+        )
 
         # Yield the tokens as they come in
         async for token in callback_handler.aiter():
-            sys.stdout.write(token)
-            sys.stdout.flush()
             yield self.text_event(token)
 
         # Await the chain run

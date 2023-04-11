@@ -1,4 +1,5 @@
-from .handler import LangChainChatModelPoeHandler, LangChainConversationChainPoeHandler
+from .handler import (LangChainChatModelPoeHandler,
+                      LangChainConversationChainPoeHandler)
 
 __all__ = [
     "LangChainChatModelPoeHandler",
