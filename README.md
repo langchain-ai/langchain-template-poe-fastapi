@@ -2,14 +2,17 @@
 
 ## Quick Start
 
+Install dependencies
 ```commandline
 $ poetry install
 ```
 
+Run the server
 ```commandline
 $ make start
 ```
 
+Make a request
 ```commandline
 $ curl -X 'POST' \
 'http://0.0.0.0:8080/' \
