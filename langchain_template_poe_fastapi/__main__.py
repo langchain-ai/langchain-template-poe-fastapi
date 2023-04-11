@@ -1,5 +1,6 @@
 from fastapi_poe import run
 
-from .handler import LangChainFastAPIPoeHandler
+from .handler import LangChainChatModelPoeHandler, LangChainConversationChainPoeHandler
 
-run(LangChainFastAPIPoeHandler())
+# run(LangChainChatModelPoeHandler())
+run(LangChainConversationChainPoeHandler())
