@@ -56,7 +56,7 @@ class LangChainChatModelPoeHandler(PoeHandler):
         # Convert the poe messages to langchain messages
         messages = convert_poe_messages(query.query)
 
-        # Run the model, we'll await it later
+        # Run the model as a separate task, we'll await it later
         run = asyncio.create_task(model.agenerate([messages]))
 
         # Yield the tokens as they come in
@@ -106,8 +106,8 @@ class LangChainConversationChainPoeHandler(PoeHandler):
         chain_input = query.query[-1].content
         print(f"Chain input: {chain_input}")
 
-        # Run the chain, we'll await it later
-        run = asyncio.create_task(chain.apredict(input=chain_input))
+        # Run the chain as a separate task, we'll await it later
+        run = asyncio.create_task(chain.arun(input=chain_input))
 
         # Yield the tokens as they come in
         async for token in callback_handler.aiter():
@@ -156,7 +156,7 @@ class LangChainConversationRetrievalChainPoeHandler(PoeHandler):
         # Get the last message
         chain_input = query.query[-1].content
 
-        # Run the chain, we'll await it later
+        # Set up the chain
         question_generator = LLMChain(
             llm=question_gen_model, prompt=CONDENSE_QUESTION_PROMPT
         )
@@ -172,6 +172,8 @@ class LangChainConversationRetrievalChainPoeHandler(PoeHandler):
             question_generator=question_generator,
             retriever=self.vectorstore.as_retriever(),
         )
+
+        # Run the chain as a separate task, we'll await it later
         run = asyncio.create_task(
             chain.acall({"question": chain_input, "chat_history": chat_history})
         )

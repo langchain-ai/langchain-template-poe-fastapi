@@ -6,7 +6,7 @@ from .handler import (LangChainChatModelPoeHandler,
                       LangChainConversationChainPoeHandler,
                       LangChainConversationRetrievalChainPoeHandler)
 
-handler_str = os.getenv("LANGCHAIN_HANDLER", "default_chat")
+handler_str = os.getenv("POE_HANDLER", "default_chat")
 if handler_str == "default_chat":
     handler = LangChainChatModelPoeHandler()
 elif handler_str == "conversation":

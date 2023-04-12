@@ -7,7 +7,7 @@ Install dependencies
 poetry install
 ```
 
-Run the server
+Run the server. By default, the `LangChainChatModelPoeHandler` will be used, but others can be used by setting the `POE_HANDLER` environment variable (see `__main__.py` for more details).
 ```commandline
 make start
 ```
