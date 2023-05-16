@@ -1,11 +1,10 @@
 import asyncio
-import sys
 from typing import List
 
 from fastapi_poe import PoeHandler
 from fastapi_poe.types import ProtocolMessage, QueryRequest
-from langchain.callbacks import (AsyncCallbackManager,
-                                 AsyncIteratorCallbackHandler)
+from langchain.callbacks import AsyncIteratorCallbackHandler
+from langchain.callbacks.manager import AsyncCallbackManager
 from langchain.chains import ConversationalRetrievalChain, ConversationChain
 from langchain.chains.conversational_retrieval.prompts import (
     CONDENSE_QUESTION_PROMPT, QA_PROMPT)
@@ -48,10 +47,9 @@ class LangChainChatModelPoeHandler(PoeHandler):
     async def get_response(self, query: QueryRequest):
         # Create a callback manager for this request
         callback_handler = AsyncIteratorCallbackHandler()
-        callback_manager = AsyncCallbackManager([callback_handler])
 
         # Create a new ChatModel for this request
-        model = ChatOpenAI(callback_manager=callback_manager, streaming=True)
+        model = ChatOpenAI(callbacks=[callback_handler], streaming=True)
 
         # Convert the poe messages to langchain messages
         messages = convert_poe_messages(query.query)
@@ -92,8 +90,7 @@ class LangChainConversationChainPoeHandler(PoeHandler):
     async def get_response(self, query: QueryRequest):
         # Set up the callback handlers and chains
         callback_handler = AsyncIteratorCallbackHandler()
-        callback_manager = AsyncCallbackManager([callback_handler])
-        model = ChatOpenAI(callback_manager=callback_manager, streaming=True)
+        model = ChatOpenAI(callbacks=[callback_handler], streaming=True)
 
         # Get the memory for this conversation
         memory = self.memories.get(query.conversation_id)
